@@ -1,0 +1,44 @@
+subprojects { 
+
+   apply plugin: 'base'
+
+   ext.targetDir="${buildDir}/target"
+
+
+   task copyConfiguration(type: Copy) {
+      into targetDir
+
+      def orderToCopy = [ "1", "2", project.name ]
+      def components = [ "aaa", "bbb" ]
+
+      from(rootProject.file("src/main/dist/scripts")) {
+         into 'scripts'
+      }
+
+      components.each { component ->
+         orderToCopy.each { order ->
+            // copies from aaa/1 into aaa/ followed by aaa/2 into aaa/
+            // and finally copy aaa/$project.name into aaa/
+            from(rootProject.file("src/main/dist/${component}/${order}")) {
+               into "${component}/data"
+            }
+         }
+      }
+
+      eachFile { FileCopyDetails fcd ->
+         def destination = file("${targetDir}/${fcd.path}")
+         if (destination.exists()) {
+            println "Overwriting ${destination} with $fcd.file"
+         } else {
+            println "Copying to ${destination} from $fcd.file"
+         }
+      }
+   }
+
+   task assembleZip(type: Zip, dependsOn: copyConfiguration) {
+      from targetDir
+      into "/"
+   }
+
+   assemble.dependsOn assembleZip 
+}
