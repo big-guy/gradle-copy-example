@@ -1,9 +1,16 @@
 subprojects { 
+   ext.targetDir = "${buildDir}/target"
+   version = '1.1.0'
 
    apply plugin: 'base'
+   apply from: "${rootDir}/patch.gradle"
 
-   ext.targetDir="${buildDir}/target"
 
+   repositories {
+      flatDir {
+         dirs "$rootDir/repo/flat"
+      }
+   }
 
    task copyConfiguration(type: Copy) {
       into targetDir
@@ -40,5 +47,5 @@ subprojects {
       into "/"
    }
 
-   assemble.dependsOn assembleZip 
+   assemble.dependsOn assembleZip
 }

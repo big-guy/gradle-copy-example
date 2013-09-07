@@ -1,0 +1,40 @@
+
+repositories {
+   mavenCentral()
+}
+
+configurations {
+   patch
+   patchDiff
+}
+
+ext.baseTargetDir = "$buildDir/baseTarget"
+   ext.patchBaseVersion = {
+      if (project.hasProperty('baseRef')) {
+         "git describe ${project.properties.baseRef}".execute().text.trim() 
+      } else {
+        project.properties['baseVersion'] ?: '1.0.0'
+      }
+   }
+dependencies {
+   patch ":${project.name}:${patchBaseVersion()}@zip"
+   patchDiff 'com.alexkasko.delta:delta-diff:1.1'
+}
+
+task extractPatch(type: Copy, dependsOn: configurations.patch ) {
+   into baseTargetDir
+   from {
+      zipTree(configurations.patch.singleFile)
+   }
+}
+
+task assemblePatch(type: JavaExec, dependsOn: [ 'copyConfiguration', 'extractPatch' ]) {
+   def outputFile = file("$buildDir/distributions/${project.name}-${project.patchBaseVersion()}_to_${project.version}-patch.zip")
+   inputs.files targetDir, baseTargetDir
+   outputs.files outputFile
+
+   classpath configurations.patchDiff
+   main 'com.alexkasko.delta.DiffLauncher'
+
+   args targetDir, baseTargetDir, "-o", outputFile 
+} 
