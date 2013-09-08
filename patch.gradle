@@ -6,6 +6,7 @@ repositories {
 configurations {
    patch
    patchDiff
+   patchDiffExtract
 }
 
 ext.baseTargetDir = "$buildDir/baseTarget"
@@ -16,26 +17,42 @@ ext.patchBaseVersion = {
      project.properties['baseVersion'] ?: '1.0.0'
    }
 }
+ext.patchFileName = file("$buildDir/distributions/${project.name}-${project.patchBaseVersion()}_to_${project.version}-patch.zip")
 
 dependencies {
    patch ":${project.name}:${patchBaseVersion()}@zip"
-   patchDiff files('/home/sterling/gits/delta-updater/build/libs/delta-updater.jar') // 'com.alexkasko.delta:delta-diff:1.1'
+
+   patchDiffExtract 'com.alexkasko.delta:delta-diff:1.1'
+
+   // fatjar can be built from fork available: https://github.com/big-guy/delta-updater
+   patchDiff files("${rootDir}/../delta-updater/build/libs/delta-updater.jar")
 }
 
 task extractPatch(type: Copy, dependsOn: configurations.patch ) {
    into baseTargetDir
    from {
-      zipTree(configurations.patch.singleFile)
+      configurations.patch.collect { zipTree(it) }
    }
 }
 
-task assemblePatch(type: JavaExec, dependsOn: [ 'copyConfiguration', 'extractPatch' ]) {
-   def outputFile = file("$buildDir/distributions/${project.name}-${project.patchBaseVersion()}_to_${project.version}-patch.zip")
+task assemblePatchExtract(type: JavaExec, dependsOn: [ 'copyConfiguration', 'extractPatch' ]) {
    inputs.files targetDir, baseTargetDir
-   outputs.files outputFile
+   outputs.files patchFileName 
+
+   classpath configurations.patchDiffExtract
+   main 'com.alexkasko.delta.DiffLauncher'
+
+   args baseTargetDir, targetDir, "-o", patchFileName 
+} 
+
+task assemblePatch(type: JavaExec, dependsOn: [ 'copyConfiguration' ]) {
+   inputs.files targetDir, baseTargetDir
+   outputs.files patchFileName 
 
    classpath configurations.patchDiff
    main 'com.alexkasko.delta.DiffLauncher'
 
-   args configurations.patch.singleFile, targetDir, "-o", outputFile 
+   doFirst() {
+      args "zip://" + configurations.patch.singleFile, targetDir, "-o", patchFileName 
+   }
 } 
